@@ -1,0 +1,136 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --color-periwinkle: #B5C7EB;
+    --color-ocean-deep: #305CDE;
+    --color-seafoam: #A8C3BC;
+    --color-ocean-mid: #2D68C4;
+  }
+
+  body {
+    background-color: #F4F7FC;
+    color: #0F172A;
+    font-family: 'Inter', 'Plus Jakarta Sans', system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: 'Plus Jakarta Sans', 'Inter', sans-serif;
+    letter-spacing: -0.025em;
+  }
+}
+
+/* Professional Oceanographic Grid Texture */
+.sonar-grid-light {
+  background-color: #F4F7FC;
+  background-image: 
+    linear-gradient(rgba(45, 104, 196, 0.06) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 104, 196, 0.06) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.sonar-grid-periwinkle {
+  background-color: #B5C7EB;
+  background-image: 
+    linear-gradient(rgba(45, 104, 196, 0.12) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(45, 104, 196, 0.12) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+.sonar-grid-dark {
+  background-color: #0A192F;
+  background-image: 
+    linear-gradient(rgba(181, 199, 235, 0.08) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(181, 199, 235, 0.08) 1px, transparent 1px);
+  background-size: 28px 28px;
+}
+
+/* Sleek Professional Panels & Glassmorphism */
+.tech-card {
+  background-color: #FFFFFF;
+  border: 1px solid rgba(45, 104, 196, 0.18);
+  border-radius: 16px;
+  box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.05), 0 2px 6px -1px rgba(15, 23, 42, 0.03);
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.tech-card:hover {
+  transform: translateY(-2px);
+  border-color: #305CDE;
+  box-shadow: 0 12px 28px -6px rgba(48, 92, 222, 0.15);
+}
+
+.tech-card-dark {
+  background-color: #0F172A;
+  color: #FFFFFF;
+  border: 1px solid rgba(45, 104, 196, 0.3);
+  border-radius: 16px;
+  box-shadow: 0 10px 30px -5px rgba(0, 0, 0, 0.3);
+}
+
+/* Professional Tech Badges */
+.tech-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.tech-badge-blue {
+  background-color: rgba(48, 92, 222, 0.12);
+  color: #305CDE;
+  border: 1px solid rgba(48, 92, 222, 0.3);
+}
+
+.tech-badge-green {
+  background-color: rgba(16, 185, 129, 0.12);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.tech-badge-amber {
+  background-color: rgba(245, 158, 11, 0.12);
+  color: #D97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.tech-badge-red {
+  background-color: rgba(239, 68, 68, 0.12);
+  color: #DC2626;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+/* Radar Sweep Line Animation */
+@keyframes radar-sweep {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.animate-radar-sweep {
+  animation: radar-sweep 8s linear infinite;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: #F1F5F9;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #2D68C4;
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #305CDE;
+}
