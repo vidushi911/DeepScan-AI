@@ -64,7 +64,11 @@ export const UploadPage: React.FC = () => {
     try {
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/predict`, {
+      const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiBaseUrl = configuredApiUrl
+        .replace(/\/api\/v1\/?$/, '')
+        .replace(/\/$/, '');
+      const response = await fetch(`${apiBaseUrl}/predict`, {
         method: 'POST',
         body: formData,
       });

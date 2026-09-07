@@ -11,13 +11,15 @@ from __future__ import annotations
 import json
 from pathlib import Path
 import cv2
+import numpy as np
+
 
 from ml.synthetic.generator import SyntheticSonarGenerator
 from app.services.sonar_ingest.adapter import ingest_sonar_file, PingMetadata
-from app.services.preprocessing.pipeline import get_pipeline, PreprocessingConfig
+from app.services.preprocessing.pipeline import preprocess_sonar
 from app.services.detection.detector import run_detection
-from app.services.scoring.fusion import get_fusion_module
-from app.services.geotagging.engine import get_geotagging_engine, GeotaggedDetection
+from app.services.scoring.fusion import score_and_filter
+from app.services.geotagging.engine import geotag_detections, GeotaggedDetection
 
 
 def run_demo() -> None:
@@ -54,43 +56,19 @@ def run_demo() -> None:
 
     # Step 3: Preprocessing Pipeline (Speckle filter + Slant Range + CLAHE + CA-CFAR)
     print("\n[3/5] Executing sonar preprocessing pipeline...")
-    pipeline = get_pipeline(PreprocessingConfig(speckle_filter="lee", clahe_clip_limit=2.0))
-    preprocessed = pipeline.process(
-        sonar_data.image,
-        slant_range_m=sonar_data.range_m,
-        altitude_m=12.0,
-    )
+    preprocessed = preprocess_sonar(sonar_data)
     print(f"   -> Lee speckle noise reduction applied")
     print(f"   -> CA-CFAR anomaly proposals found: {len(preprocessed.cfar_proposals)}")
 
     # Step 4: YOLOv8-seg Detection & Scoring Fusion
     print("\n[4/5] Running YOLOv8-seg neural detection & confidence fusion...")
     raw_dets = run_detection(preprocessed)
-    fusion = get_fusion_module()
-    scored_dets = fusion.score_detections(
-        detections=raw_dets,
-        image=preprocessed.image,
-        cfar_mask=preprocessed.cfar_mask,
-        altitude_m=12.0,
-        slant_range_m=sonar_data.range_m,
-    )
+    scored_dets = score_and_filter(raw_dets, preprocessed, min_confidence=10.0)
     print(f"   -> Raw detections: {len(raw_dets)}, Scored detections: {len(scored_dets)}")
 
     # Step 5: Geotagging & Reporting
     print("\n[5/5] Geotagging detections with WGS84 coordinates & generating report...")
-    geotagger = get_geotagging_engine()
-    final_geotagged: list[GeotaggedDetection] = []
-    
-    for sdet in scored_dets:
-        geotagged = geotagger.geotag_bbox(
-            bbox_pixels=sdet.raw_detection.bbox_pixels,
-            ping_metadata=sonar_data.ping_metadata,
-            num_samples=sonar_data.samples_per_ping,
-            class_label=sdet.raw_detection.class_label,
-            confidence=sdet.final_score,
-            mask=sdet.raw_detection.mask,
-        )
-        final_geotagged.append(geotagged)
+    final_geotagged = geotag_detections(scored_dets, sonar_data)
 
     report = {
         "survey_name": "Demo Sonar Mission 01",
@@ -99,12 +77,12 @@ def run_demo() -> None:
         "detections_found": len(final_geotagged),
         "results": [
             {
-                "class": d.class_label,
-                "confidence_score": round(d.confidence_score, 1),
+                "class": d.detection.class_label,
+                "confidence_score": round(d.detection.model_confidence * 100, 1),
                 "latitude": round(d.latitude, 6),
                 "longitude": round(d.longitude, 6),
-                "across_track_m": round(d.across_track_distance_m, 2),
-                "bbox_px": d.bbox_pixels,
+                "across_track_m": round(d.across_track_m, 2),
+                "bbox_px": d.detection.bbox_pixels,
             }
             for d in final_geotagged
         ],
@@ -118,6 +96,7 @@ def run_demo() -> None:
     print("-----------------------------------------------------------------")
     print(json.dumps(report, indent=2))
     print("-----------------------------------------------------------------")
+
 
 
 if __name__ == "__main__":

@@ -113,7 +113,7 @@ def lee_filter(
                 k = 0.0
 
             k = np.clip(k, 0.0, 1.0)
-            output[i, j] = local_mean + k * (img[i + half, j + half] - local_mean)
+            output[i, j] = local_mean + k * (padded[i + half, j + half] - local_mean)
 
     result = output.astype(np.float32)
     logger.info("lee_filter_done", output_mean=float(np.mean(result)))
