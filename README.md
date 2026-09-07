@@ -33,5 +33,30 @@ npm run dev
 npm run build
 ```
 
+### Run the ML backend
+
+Copy the two Ultralytics `.pt` files from Colab into these paths:
+
+```text
+backend/models/wreck_specialist/best.pt
+backend/models/pipeline_real/best_fixed.pt
+```
+
+The backend creates one independent inference agent per model. A multi-agent orchestrator runs all registered agents in parallel and merges their detections. Add future models to `AGENT_REGISTRY` in `backend/main.py`; each agent has its own name, display name, and model path. Override `WRECK_MODEL_PATH` and `PIPELINE_MODEL_PATH` if you use different locations.
+
+```bash
+cd backend
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements.txt
+uvicorn main:app --reload --port 8000
+```
+
+The frontend sends uploaded images to `http://localhost:8000/predict`. Set `VITE_API_URL` when the API runs elsewhere. `/health` reports whether the configured model file is available.
+
+Use `/agents` to inspect every configured model agent and its file status. Each prediction response also includes `agent_statuses`.
+
+Raw `.XTF` and `.JSF` parsing is not included yet because it depends on the sonar vendor format. The current model input is an image such as PNG, JPG, TIFF, or PBM. The Colab code trains the pipeline model on one class (`Pipeline`); the wreck model uses the class names stored in its Roboflow-trained weights.
+
 ---
 Built for Ocean Preservation & Subsea Hydrographic Research.

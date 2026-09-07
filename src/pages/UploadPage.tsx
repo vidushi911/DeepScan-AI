@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SAMPLE_DATASETS, PIPELINE_STAGES } from '../data/sampleData';
 import type { SurveyDataset } from '../types/sonar';
@@ -12,8 +12,10 @@ import confetti from 'canvas-confetti';
 
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(SAMPLE_DATASETS[0]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [currentStageIdx, setCurrentStageIdx] = useState<number>(5); // Default 100%
   const [pipelineProgress, setPipelineProgress] = useState<number>(100);
   const [logMessages, setLogMessages] = useState<string[]>([
@@ -23,6 +25,7 @@ export const UploadPage: React.FC = () => {
   ]);
 
   const triggerUploadSimulator = (dataset: SurveyDataset) => {
+    setApiError(null);
     setIsProcessing(true);
     setCurrentStageIdx(0);
     setPipelineProgress(0);
@@ -50,6 +53,41 @@ export const UploadPage: React.FC = () => {
         confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
       }
     }, 550);
+  };
+
+  const processUploadedFile = async (file: File) => {
+    setIsProcessing(true);
+    setPipelineProgress(15);
+    setApiError(null);
+    setLogMessages((prev) => [...prev, `Uploading ${file.name} to the inference service...`]);
+
+    try {
+      const formData = new FormData();
+      formData.append('file', file);
+      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/predict`, {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const detail = await response.text();
+        throw new Error(detail || `Inference failed (${response.status})`);
+      }
+
+      const dataset = await response.json() as SurveyDataset;
+      setSelectedDataset(dataset);
+      setPipelineProgress(100);
+      setCurrentStageIdx(5);
+      setLogMessages((prev) => [...prev, `✓ Model inference complete. Found ${dataset.detections.length} detections.`]);
+      confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to reach the inference service.';
+      setApiError(message);
+      setPipelineProgress(0);
+      setLogMessages((prev) => [...prev, `✕ ${message}`]);
+    } finally {
+      setIsProcessing(false);
+    }
   };
 
   return (
@@ -82,7 +120,15 @@ export const UploadPage: React.FC = () => {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
         {/* Drag and Drop Zone */}
         <div className="lg:col-span-7 tech-card p-6 flex flex-col justify-between space-y-6">
-          <div className="border-2 border-dashed border-[#305CDE]/50 rounded-2xl p-8 bg-blue-50/50 hover:bg-blue-50 transition-colors text-center flex flex-col items-center justify-center">
+          <div
+            className="border-2 border-dashed border-[#305CDE]/50 rounded-2xl p-8 bg-blue-50/50 hover:bg-blue-50 transition-colors text-center flex flex-col items-center justify-center"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={(event) => {
+              event.preventDefault();
+              const file = event.dataTransfer.files[0];
+              if (file) void processUploadedFile(file);
+            }}
+          >
             <div className="w-14 h-14 rounded-2xl bg-[#305CDE]/10 text-[#305CDE] flex items-center justify-center mb-4">
               <UploadCloud className="w-8 h-8" />
             </div>
@@ -92,6 +138,25 @@ export const UploadPage: React.FC = () => {
             <p className="text-xs text-slate-600 max-w-sm mb-6">
               Supports eXtended Triton Format (.XTF), EdgeTech (.JSF), GeoTIFF rasters (.TIFF), and PNG sonar waterfalls.
             </p>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".xtf,.jsf,.tif,.tiff,.png,.jpg,.jpeg"
+              className="hidden"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void processUploadedFile(file);
+                event.target.value = '';
+              }}
+            />
+            <button
+              type="button"
+              disabled={isProcessing}
+              onClick={() => fileInputRef.current?.click()}
+              className="bg-[#305CDE] hover:bg-[#2D68C4] disabled:opacity-50 text-white px-4 py-2 rounded-xl font-semibold text-sm mb-6"
+            >
+              Choose a sonar file
+            </button>
 
             {/* Test Preset Buttons */}
             <div className="w-full space-y-2">
@@ -115,6 +180,7 @@ export const UploadPage: React.FC = () => {
                 ))}
               </div>
             </div>
+            {apiError && <p className="mt-4 text-xs font-semibold text-red-600">{apiError}</p>}
           </div>
 
           {/* Supported Format Chips */}
