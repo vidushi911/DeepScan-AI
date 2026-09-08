@@ -9,6 +9,7 @@ import { EdgeBenchmarkPanel } from './EdgeBenchmarkPanel';
 import { AnalyticsCharts } from './AnalyticsCharts';
 import { LimitationsCard } from './LimitationsCard';
 import { StickerBadge } from './DoodleIcons';
+import { useAppData } from '../context/AppDataContext';
 import { 
   UploadCloud, 
   SlidersHorizontal, 
@@ -19,8 +20,9 @@ import {
 import confetti from 'canvas-confetti';
 
 export const Dashboard: React.FC = () => {
+  const { latestDataset } = useAppData();
   // Active Dataset
-  const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(SAMPLE_DATASETS[0]);
+  const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(latestDataset ?? SAMPLE_DATASETS[0]);
   
   // Pipeline Processing Simulation State
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
@@ -41,13 +43,15 @@ export const Dashboard: React.FC = () => {
 
   // Update detections when dataset changes
   useEffect(() => {
-    setDetections(selectedDataset.detections);
-    setSelectedDetection(selectedDataset.detections[0] || null);
+    const activeDataset = latestDataset ?? selectedDataset;
+    setSelectedDataset(activeDataset);
+    setDetections(activeDataset.detections);
+    setSelectedDetection(activeDataset.detections[0] || null);
     setLogMessages((prev) => [
       ...prev,
-      `Switched dataset to: ${selectedDataset.name}`,
+      `Switched dataset to: ${activeDataset.name}`,
     ]);
-  }, [selectedDataset]);
+  }, [latestDataset, selectedDataset]);
 
   // Trigger File Upload Processing Pipeline Simulator
   const triggerSimulatedUpload = (dataset: SurveyDataset) => {

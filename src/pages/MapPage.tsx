@@ -1,14 +1,23 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SAMPLE_DATASETS } from '../data/sampleData';
 import type { SonarDetection, SurveyDataset } from '../types/sonar';
 import { InteractiveMap } from '../components/InteractiveMap';
+import { useAppData } from '../context/AppDataContext';
 import { Map, ArrowRight, FileText } from 'lucide-react';
 
 export const MapPage: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(SAMPLE_DATASETS[0]);
-  const [selectedDetection, setSelectedDetection] = useState<SonarDetection | null>(SAMPLE_DATASETS[0].detections[0]);
+  const { latestDataset } = useAppData();
+  const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(latestDataset ?? SAMPLE_DATASETS[0]);
+  const [selectedDetection, setSelectedDetection] = useState<SonarDetection | null>((latestDataset ?? SAMPLE_DATASETS[0]).detections[0] ?? null);
+
+  useEffect(() => {
+    if (latestDataset) {
+      setSelectedDataset(latestDataset);
+      setSelectedDetection(latestDataset.detections[0] ?? null);
+    }
+  }, [latestDataset]);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 py-10 space-y-8">

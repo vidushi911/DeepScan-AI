@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { SAMPLE_DATASETS, PIPELINE_STAGES } from '../data/sampleData';
 import type { SurveyDataset } from '../types/sonar';
 import { NoiseFilterSlider } from '../components/NoiseFilterSlider';
+import { useAppData } from '../context/AppDataContext';
 import { 
   UploadCloud, 
   ArrowRight, 
@@ -13,6 +14,7 @@ import confetti from 'canvas-confetti';
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { setLatestDataset } = useAppData();
   const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(SAMPLE_DATASETS[0]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -62,6 +64,13 @@ export const UploadPage: React.FC = () => {
     setLogMessages((prev) => [...prev, `Uploading ${file.name} to the inference service...`]);
 
     try {
+      const previewUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Unable to read uploaded file preview.'));
+        reader.readAsDataURL(file);
+      });
+
       const formData = new FormData();
       formData.append('file', file);
       const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
@@ -79,11 +88,22 @@ export const UploadPage: React.FC = () => {
       }
 
       const dataset = await response.json() as SurveyDataset;
-      setSelectedDataset(dataset);
+      const uploadedDataset: SurveyDataset = {
+        ...dataset,
+        id: dataset.id || `upload-${Date.now()}`,
+        name: dataset.name || file.name,
+        locationName: dataset.locationName || 'Uploaded survey',
+        imageUrl: previewUrl,
+      };
+
+      localStorage.setItem('deepScanLatestDataset', JSON.stringify(uploadedDataset));
+      setLatestDataset(uploadedDataset);
+      setSelectedDataset(uploadedDataset);
       setPipelineProgress(100);
       setCurrentStageIdx(5);
-      setLogMessages((prev) => [...prev, `✓ Model inference complete. Found ${dataset.detections.length} detections.`]);
+      setLogMessages((prev) => [...prev, `✓ Model inference complete. Found ${uploadedDataset.detections.length} detections.`]);
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+      navigate('/results');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to reach the inference service.';
       setApiError(message);

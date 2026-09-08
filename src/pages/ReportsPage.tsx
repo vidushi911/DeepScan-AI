@@ -1,14 +1,22 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SAMPLE_DATASETS } from '../data/sampleData';
 import type { SonarDetection } from '../types/sonar';
 import { ReportsTable } from '../components/ReportsTable';
 import { ManualReviewPanel } from '../components/ManualReviewPanel';
+import { useAppData } from '../context/AppDataContext';
 import { FileText } from 'lucide-react';
 
 export const ReportsPage: React.FC = () => {
+  const { latestDataset } = useAppData();
   const [detections, setDetections] = useState<SonarDetection[]>(
-    SAMPLE_DATASETS.flatMap(ds => ds.detections)
+    (latestDataset ?? SAMPLE_DATASETS[0]).detections
   );
+
+  useEffect(() => {
+    if (latestDataset) {
+      setDetections(latestDataset.detections);
+    }
+  }, [latestDataset]);
 
   const handleUpdateStatus = (id: string, newStatus: 'confirmed' | 'rejected') => {
     setDetections((prev) =>

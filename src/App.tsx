@@ -7,31 +7,31 @@ import { ResultsPage } from './pages/ResultsPage';
 import { MapPage } from './pages/MapPage';
 import { ReportsPage } from './pages/ReportsPage';
 import { BenchmarksPage } from './pages/BenchmarksPage';
+import { AppDataProvider } from './context/AppDataContext';
 
 export function App() {
   return (
-    <Router>
-      <div className="min-h-screen flex flex-col bg-[#F4F7FC] text-slate-800 font-sans selection:bg-[#305CDE] selection:text-white">
-        {/* Sleek Top Navigation Bar */}
-        <Navbar />
+    <AppDataProvider>
+      <Router>
+        <div className="min-h-screen flex flex-col bg-[#F4F7FC] text-slate-800 font-sans selection:bg-[#305CDE] selection:text-white">
+          <Navbar />
 
-        {/* Multi-Page Route Outlet */}
-        <main className="flex-grow">
-          <Routes>
-            <Route path="/" element={<HomePage />} />
-            <Route path="/upload" element={<UploadPage />} />
-            <Route path="/results" element={<ResultsPage />} />
-            <Route path="/map" element={<MapPage />} />
-            <Route path="/reports" element={<ReportsPage />} />
-            <Route path="/benchmarks" element={<BenchmarksPage />} />
-            <Route path="*" element={<Navigate to="/" replace />} />
-          </Routes>
-        </main>
+          <main className="flex-grow">
+            <Routes>
+              <Route path="/" element={<HomePage />} />
+              <Route path="/upload" element={<UploadPage />} />
+              <Route path="/results" element={<ResultsPage />} />
+              <Route path="/map" element={<MapPage />} />
+              <Route path="/reports" element={<ReportsPage />} />
+              <Route path="/benchmarks" element={<BenchmarksPage />} />
+              <Route path="*" element={<Navigate to="/" replace />} />
+            </Routes>
+          </main>
 
-        {/* Professional Footer */}
-        <Footer />
-      </div>
-    </Router>
+          <Footer />
+        </div>
+      </Router>
+    </AppDataProvider>
   );
 }
 
