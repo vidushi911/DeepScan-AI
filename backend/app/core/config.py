@@ -65,8 +65,10 @@ class Settings(BaseSettings):
     # ── ML / Detection ───────────────────────────────────────
     model_input_size: int = 640
     confidence_threshold: float = 0.25
-    yolo_weights_path: Path = Path("/app/models/yolov8-seg-sonar.pt")
-    onnx_model_path: Path = Path("/app/models/yolov8-seg-sonar.onnx")
+    # The worker uses the trained pipeline detector by default. Override this
+    # with PIPELINE_WEIGHTS_PATH for a mounted model in another location.
+    pipeline_weights_path: Path = Path("/app/models/pipeline_real/best_fixed.pt")
+    onnx_model_path: Path = Path("/app/models/pipeline_real/best_fixed.onnx")
     use_tensorrt: bool = False
 
     # ── Scoring Fusion ───────────────────────────────────────

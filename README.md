@@ -44,7 +44,7 @@ backend/models/wreck_specialist/best.pt
 backend/models/pipeline_real/best_fixed.pt
 ```
 
-The backend currently runs the shipwreck inference agent only. Add future models to `AGENT_REGISTRY` in `backend/main.py`; each agent has its own name, display name, and model path. Override `WRECK_MODEL_PATH` if you use a different location.
+The production worker uses the subsea pipeline detector at `pipeline_real/best_fixed.pt` by default. The legacy `/predict` service registers both the pipeline and shipwreck agents. Override `PIPELINE_WEIGHTS_PATH` for the async worker or `PIPELINE_MODEL_PATH` for the legacy service when the model is mounted elsewhere.
 
 ```bash
 cd backend
@@ -60,9 +60,9 @@ In a second terminal, run the frontend from the repository root:
 npm run dev
 ```
 
-The upload page sends image files to `http://localhost:8000/predict`.
+The upload page sends files to the async processing API at `http://localhost:8000/api/v1/uploads`, polls the pipeline job, and loads persisted detections from `/api/v1/detections`.
 
-The frontend sends uploaded images to `http://localhost:8000/predict`. Set `VITE_API_URL` when the API runs elsewhere. `/health` reports whether the shipwreck model file is available.
+Set `VITE_API_URL` when the API runs elsewhere. `/health` reports database and Redis readiness; `/agents` reports model file status for the legacy service.
 
 Use `/agents` to inspect every configured model agent and its file status. Each prediction response also includes `agent_statuses`.
 

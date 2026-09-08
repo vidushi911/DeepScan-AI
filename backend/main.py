@@ -1,4 +1,4 @@
-"""Inference API for the wreck and pipeline YOLO models trained in Colab."""
+"""Inference API for the pipeline and wreck YOLO models trained in Colab."""
 
 import io
 import os
@@ -33,6 +33,11 @@ class AgentConfig:
 
 
 AGENT_REGISTRY = (
+    AgentConfig(
+        "pipeline",
+        "Subsea pipeline specialist",
+        Path(os.getenv("PIPELINE_MODEL_PATH", str(MODEL_ROOT / "pipeline_real" / "best_fixed.pt"))),
+    ),
     AgentConfig(
         "wreck",
         "Wreck specialist",
@@ -142,8 +147,8 @@ async def predict(file: UploadFile = File(...)) -> dict[str, Any]:
             raise HTTPException(
                 status_code=503,
                 detail=(
-                    "The shipwreck model is unavailable. Add best.pt under "
-                    "backend/models/wreck_specialist or set WRECK_MODEL_PATH."
+                    "A configured sonar model is unavailable. Add pipeline weights under "
+                    "backend/models/pipeline_real/best_fixed.pt or set PIPELINE_MODEL_PATH."
                 ),
             ) from error
         raise HTTPException(status_code=500, detail=str(error)) from error

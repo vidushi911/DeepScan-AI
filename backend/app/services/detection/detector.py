@@ -86,7 +86,7 @@ class YOLOv8SegDetector:
             weights_path: Path to the YOLOv8-seg weights file (.pt).
                           If None, uses the configured default.
         """
-        self._weights_path = weights_path or get_settings().yolo_weights_path
+        self._weights_path = weights_path or get_settings().pipeline_weights_path
         self._model: Any = None
 
     def _load_model(self) -> None:
@@ -98,12 +98,13 @@ class YOLOv8SegDetector:
             logger.warning(
                 "yolo_weights_not_found",
                 path=str(self._weights_path),
-                msg="Using COCO-pretrained yolov8n-seg as fallback. "
-                "For production, train on sonar data using ml/training/.",
+                msg="Pipeline model weights are required for production. "
+                "Train and mount the model using ml/training/train_yolo.py.",
             )
-            # Fall back to pretrained model for development
-            from ultralytics import YOLO
-            self._model = YOLO("yolov8n-seg.pt")
+            raise FileNotFoundError(
+                f"Pipeline model not found at {self._weights_path}. "
+                "Set PIPELINE_WEIGHTS_PATH or add pipeline_real/best_fixed.pt."
+            )
         else:
             from ultralytics import YOLO
             self._model = YOLO(str(self._weights_path))

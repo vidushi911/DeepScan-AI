@@ -63,20 +63,20 @@ export const UploadPage: React.FC = () => {
     setApiError(null);
     setLogMessages((prev) => [...prev, `Uploading ${file.name} to the inference service...`]);
 
-    try {
-      const previewUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(String(reader.result));
-        reader.onerror = () => reject(new Error('Unable to read uploaded file preview.'));
-        reader.readAsDataURL(file);
-      });
+    const previewUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(String(reader.result));
+      reader.onerror = () => reject(new Error('Unable to read uploaded file preview.'));
+      reader.readAsDataURL(file);
+    });
+    const formData = new FormData();
+    formData.append('file', file);
+    const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+    const apiBaseUrl = configuredApiUrl
+      .replace(/\/api\/v1\/?$/, '')
+      .replace(/\/$/, '');
 
-      const formData = new FormData();
-      formData.append('file', file);
-      const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-      const apiBaseUrl = configuredApiUrl
-        .replace(/\/api\/v1\/?$/, '')
-        .replace(/\/$/, '');
+    try {
       const response = await fetch(`${apiBaseUrl}/api/v1/uploads`, {
         method: 'POST',
         body: formData,
@@ -176,10 +176,36 @@ export const UploadPage: React.FC = () => {
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
       navigate('/results');
     } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unable to reach the inference service.';
-      setApiError(message);
-      setPipelineProgress(0);
-      setLogMessages((prev) => [...prev, `✕ ${message}`]);
+      const primaryMessage = error instanceof Error ? error.message : 'Async pipeline unavailable.';
+      try {
+        setLogMessages((prev) => [...prev, 'Async services unavailable. Running the local pipeline model...']);
+        const localResponse = await fetch(`${apiBaseUrl}/api/v1/local-predict`, {
+          method: 'POST',
+          body: formData,
+        });
+        if (!localResponse.ok) {
+          throw new Error(await localResponse.text());
+        }
+        const localDataset = await localResponse.json() as SurveyDataset;
+        const uploadedDataset: SurveyDataset = { ...localDataset, imageUrl: previewUrl };
+        localStorage.setItem('deepScanLatestDataset', JSON.stringify(uploadedDataset));
+        setLatestDataset(uploadedDataset);
+        setSelectedDataset(uploadedDataset);
+        setPipelineProgress(100);
+        setCurrentStageIdx(5);
+        setLogMessages((prev) => [
+          ...prev,
+          `✓ Local pipeline model complete. Found ${uploadedDataset.detections.length} detections.`,
+        ]);
+        navigate('/results');
+        return;
+      } catch (fallbackError) {
+        const fallbackMessage = fallbackError instanceof Error ? fallbackError.message : 'Local inference failed.';
+        const message = `${primaryMessage} Local fallback: ${fallbackMessage}`;
+        setApiError(message);
+        setPipelineProgress(0);
+        setLogMessages((prev) => [...prev, `✕ ${message}`]);
+      }
     } finally {
       setIsProcessing(false);
     }
