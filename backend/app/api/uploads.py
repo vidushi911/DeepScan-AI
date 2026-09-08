@@ -104,7 +104,8 @@ async def upload_sonar_file(
 
     # 6. Create survey record
     survey_id = uuid.uuid4()
-    job_id = uuid.uuid4()  # In production, this maps to the Celery task ID
+    # Job status currently uses the survey ID as its lookup key.
+    job_id = survey_id
     survey = Survey(
         id=survey_id,
         filename=opaque_name,

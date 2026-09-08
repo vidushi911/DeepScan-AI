@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from geoalchemy2.shape import to_shape
 
 from app.core.logging import get_logger
 from app.db.models import Detection
@@ -43,9 +44,9 @@ def _detection_to_response(det: Detection) -> DetectionResponse:
 
     location = None
     if det.geom is not None:
-        # Extract lat/lon from the PostGIS geometry
-        # This would normally use ST_Y/ST_X but we compute it in the query
-        location = GeoPoint(lat=0.0, lon=0.0)  # Populated by query
+        # PostGIS stores POINT coordinates as (longitude, latitude).
+        point = to_shape(det.geom)
+        location = GeoPoint(lat=float(point.y), lon=float(point.x))
 
     bbox = None
     if det.pixel_x is not None and det.pixel_w is not None:

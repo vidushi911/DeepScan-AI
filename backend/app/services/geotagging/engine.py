@@ -66,6 +66,64 @@ class GeotaggedDetection:
     across_track_m: float = 0.0
 
 
+@dataclass
+class GeotaggingResult:
+    """Public geotagging result for callers that provide one bounding box."""
+
+    latitude: float
+    longitude: float
+    width_m: float
+    height_m: float
+    class_label: str
+    confidence: float
+    ping_index: int
+    across_track_m: float
+
+
+class GeotaggingEngine:
+    """Convenience facade for converting a pixel bbox into a WGS84 location."""
+
+    def geotag_bbox(
+        self,
+        bbox_pixels: tuple[int, int, int, int],
+        ping_metadata: list[PingMetadata],
+        num_samples: int,
+        class_label: str,
+        confidence: float,
+        range_m: float = 75.0,
+        channel: str = "combined",
+    ) -> GeotaggingResult:
+        """Geotag one detection using the same production conversion path."""
+        if not ping_metadata:
+            return GeotaggingResult(0.0, 0.0, 0.0, 0.0, class_label, confidence, 0, 0.0)
+
+        import numpy as np
+
+        detection = RawDetection(
+            class_label=class_label,
+            model_confidence=confidence / 100.0,
+            bbox_pixels=bbox_pixels,
+        )
+        sonar_data = SonarData(
+            image=np.zeros((len(ping_metadata), max(num_samples, 1)), dtype=np.float32),
+            ping_metadata=ping_metadata,
+            range_m=range_m,
+            samples_per_ping=num_samples,
+            channel=channel,
+        )
+        result = geotag_detections([detection], sonar_data)[0]
+        return GeotaggingResult(
+            latitude=result.latitude,
+            longitude=result.longitude,
+            width_m=result.width_m,
+            height_m=result.height_m,
+            class_label=class_label,
+            confidence=confidence,
+            ping_index=result.ping_index,
+            across_track_m=result.across_track_m,
+        )
+
+
 def pixel_to_ground_range(
     pixel_col: int,
     num_samples: int,
