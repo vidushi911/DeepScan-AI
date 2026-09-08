@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SAMPLE_DATASETS } from '../data/sampleData';
 import type { SonarDetection, SurveyDataset } from '../types/sonar';
@@ -11,12 +11,32 @@ import {
   Activity 
 } from 'lucide-react';
 
+const getStoredDataset = (): SurveyDataset | null => {
+  try {
+    const raw = localStorage.getItem('deepScanLatestDataset');
+    return raw ? (JSON.parse(raw) as SurveyDataset) : null;
+  } catch {
+    return null;
+  }
+};
+
 export const ResultsPage: React.FC = () => {
   const navigate = useNavigate();
-  const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(SAMPLE_DATASETS[0]);
-  const [selectedDetection, setSelectedDetection] = useState<SonarDetection | null>(SAMPLE_DATASETS[0].detections[0]);
+  const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(() => getStoredDataset() ?? SAMPLE_DATASETS[0]);
+  const [selectedDetection, setSelectedDetection] = useState<SonarDetection | null>(() => {
+    const dataset = getStoredDataset() ?? SAMPLE_DATASETS[0];
+    return dataset.detections[0] ?? null;
+  });
   const [confidenceThreshold, setConfidenceThreshold] = useState<number>(35);
   const [showCfarOnly, setShowCfarOnly] = useState<boolean>(false);
+
+  useEffect(() => {
+    const stored = getStoredDataset();
+    if (stored) {
+      setSelectedDataset(stored);
+      setSelectedDetection(stored.detections[0] ?? null);
+    }
+  }, []);
 
   const visibleDetections = selectedDataset.detections.filter((d) => {
     if (d.confidence < confidenceThreshold) return false;
@@ -110,11 +130,18 @@ export const ResultsPage: React.FC = () => {
 
           {/* Sonar Canvas Box */}
           <div className="relative bg-[#0A192F] rounded-2xl h-96 overflow-hidden border border-slate-800 shadow-inner flex items-center justify-center">
-            {/* Sonar Waterfall Grid */}
-            <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(48,92,222,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(48,92,222,0.12)_1px,transparent_1px)] bg-[size:28px_28px]" />
-
-            {/* Swath Center Line */}
-            <div className="absolute top-0 bottom-0 left-1/2 w-0.5 border-r border-dashed border-blue-500/40 z-0" />
+            {selectedDataset.imageUrl ? (
+              <img
+                src={selectedDataset.imageUrl}
+                alt={selectedDataset.name}
+                className="absolute inset-0 h-full w-full object-contain bg-slate-950"
+              />
+            ) : (
+              <>
+                <div className="absolute inset-0 bg-[linear-gradient(to_right,rgba(48,92,222,0.12)_1px,transparent_1px),linear-gradient(to_bottom,rgba(48,92,222,0.12)_1px,transparent_1px)] bg-[size:28px_28px]" />
+                <div className="absolute top-0 bottom-0 left-1/2 w-0.5 border-r border-dashed border-blue-500/40 z-0" />
+              </>
+            )}
 
             {/* Render Bounding Boxes */}
             {visibleDetections.map((det) => {

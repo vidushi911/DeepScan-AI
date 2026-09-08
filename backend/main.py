@@ -14,6 +14,7 @@ from PIL import Image
 
 MODEL_INPUT_SIZE = int(os.getenv("MODEL_INPUT_SIZE", "640"))
 CONFIDENCE_THRESHOLD = float(os.getenv("CONFIDENCE_THRESHOLD", "0.25"))
+MODEL_ROOT = Path(__file__).resolve().parent / "models"
 
 app = FastAPI(title="DeepScan AI Inference API", version="1.0.0")
 app.add_middleware(
@@ -31,10 +32,12 @@ class AgentConfig:
     model_path: Path
 
 
-# Add future models here. Each entry becomes an independent inference agent.
 AGENT_REGISTRY = (
-    AgentConfig("wreck", "Wreck specialist", Path(os.getenv("WRECK_MODEL_PATH", "models/wreck_specialist/best.pt"))),
-    AgentConfig("pipeline", "Pipeline specialist", Path(os.getenv("PIPELINE_MODEL_PATH", "models/pipeline_real/best_fixed.pt"))),
+    AgentConfig(
+        "wreck",
+        "Wreck specialist",
+        Path(os.getenv("WRECK_MODEL_PATH", str(MODEL_ROOT / "wreck_specialist" / "best.pt"))),
+    ),
 )
 
 
@@ -109,7 +112,12 @@ def decode_output(output: Any, filename: str, model_name: str) -> list[dict[str,
 
 @app.get("/health")
 def health() -> dict[str, Any]:
-    return {"status": "ok", "agents": len(AGENT_REGISTRY), "all_models_exist": all(config.model_path.exists() for config in AGENT_REGISTRY)}
+    all_models_exist = all(config.model_path.exists() for config in AGENT_REGISTRY)
+    return {
+        "status": "ok" if all_models_exist else "degraded",
+        "agents": len(AGENT_REGISTRY),
+        "all_models_exist": all_models_exist,
+    }
 
 
 @app.get("/agents")
@@ -130,4 +138,12 @@ async def predict(file: UploadFile = File(...)) -> dict[str, Any]:
         detections, agent_statuses = orchestrator.predict(image, file.filename)
         return {"id": f"upload-{uuid.uuid4().hex[:8]}", "name": file.filename, "fileType": Path(file.filename).suffix.upper(), "fileSize": "", "timestamp": "", "locationName": "Uploaded survey", "pingCount": 0, "surveyLengthKm": 0, "auvTrack": [], "detections": detections, "agent_statuses": agent_statuses}
     except Exception as error:
+        if "model not found" in str(error).lower():
+            raise HTTPException(
+                status_code=503,
+                detail=(
+                    "The shipwreck model is unavailable. Add best.pt under "
+                    "backend/models/wreck_specialist or set WRECK_MODEL_PATH."
+                ),
+            ) from error
         raise HTTPException(status_code=500, detail=str(error)) from error

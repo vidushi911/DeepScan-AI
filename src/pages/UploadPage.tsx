@@ -1,8 +1,9 @@
 import React, { useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { SAMPLE_DATASETS, PIPELINE_STAGES } from '../data/sampleData';
-import type { SurveyDataset } from '../types/sonar';
+import type { SonarDetection, SurveyDataset } from '../types/sonar';
 import { NoiseFilterSlider } from '../components/NoiseFilterSlider';
+import { useAppData } from '../context/AppDataContext';
 import { 
   UploadCloud, 
   ArrowRight, 
@@ -13,6 +14,7 @@ import confetti from 'canvas-confetti';
 export const UploadPage: React.FC = () => {
   const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { setLatestDataset } = useAppData();
   const [selectedDataset, setSelectedDataset] = useState<SurveyDataset>(SAMPLE_DATASETS[0]);
   const [isProcessing, setIsProcessing] = useState<boolean>(false);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -62,9 +64,20 @@ export const UploadPage: React.FC = () => {
     setLogMessages((prev) => [...prev, `Uploading ${file.name} to the inference service...`]);
 
     try {
+      const previewUrl = await new Promise<string>((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(String(reader.result));
+        reader.onerror = () => reject(new Error('Unable to read uploaded file preview.'));
+        reader.readAsDataURL(file);
+      });
+
       const formData = new FormData();
       formData.append('file', file);
-      const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/predict`, {
+      const configuredApiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8000';
+      const apiBaseUrl = configuredApiUrl
+        .replace(/\/api\/v1\/?$/, '')
+        .replace(/\/$/, '');
+      const response = await fetch(`${apiBaseUrl}/api/v1/uploads`, {
         method: 'POST',
         body: formData,
       });
@@ -74,12 +87,94 @@ export const UploadPage: React.FC = () => {
         throw new Error(detail || `Inference failed (${response.status})`);
       }
 
-      const dataset = await response.json() as SurveyDataset;
-      setSelectedDataset(dataset);
+      const upload = await response.json() as { id: string; job_id: string; status: string };
+      let job = { status: upload.status, progress_percent: 0, error_detail: null as string | null };
+
+      for (let attempt = 0; attempt < 120; attempt += 1) {
+        const statusResponse = await fetch(`${apiBaseUrl}/api/v1/jobs/${upload.job_id}`);
+        if (!statusResponse.ok) {
+          throw new Error(`Unable to read processing status (${statusResponse.status})`);
+        }
+        job = await statusResponse.json() as typeof job;
+        setPipelineProgress(job.progress_percent);
+        if (job.status === 'done' || job.status === 'failed') break;
+        await new Promise((resolve) => window.setTimeout(resolve, 1000));
+      }
+
+      if (job.status !== 'done') {
+        throw new Error(job.error_detail || `Sonar processing ended with status: ${job.status}`);
+      }
+
+      const detectionsResponse = await fetch(
+        `${apiBaseUrl}/api/v1/detections?job_id=${encodeURIComponent(upload.id)}&page_size=200`,
+      );
+      if (!detectionsResponse.ok) {
+        throw new Error(`Unable to load processed detections (${detectionsResponse.status})`);
+      }
+      const detectionPayload = await detectionsResponse.json() as {
+        detections: Array<{
+          id: string;
+          class_label: string;
+          confidence: number;
+          confidence_tier: 'high' | 'medium' | 'low';
+          score_breakdown: { model_confidence: number; shadow_score: number; cfar_score: number; fused_score: number };
+          location: { lat: number; lon: number } | null;
+          bounding_box: { x: number; y: number; width: number; height: number } | null;
+          width_m: number | null;
+          height_m: number | null;
+          reviewed_status: 'pending' | 'confirmed' | 'rejected';
+          created_at: string;
+        }>;
+      };
+      const detections: SonarDetection[] = detectionPayload.detections.map((detection) => ({
+        id: detection.id,
+        classLabel: detection.class_label,
+        rawClass: detection.class_label.toLowerCase().replace(/\s+/g, '_') as SonarDetection['rawClass'],
+        confidence: Math.round(detection.confidence),
+        confidenceTier: detection.confidence_tier,
+        lat: detection.location?.lat ?? 0,
+        lng: detection.location?.lon ?? 0,
+        depthMeters: 0,
+        lengthMeters: detection.height_m ?? 0,
+        widthMeters: detection.width_m ?? 0,
+        boundingPoly: detection.bounding_box ?? { x: 0, y: 0, width: 0, height: 0 },
+        scoreBreakdown: {
+          modelSoftmax: Math.round(detection.score_breakdown.model_confidence),
+          shadowConsistency: Math.round(detection.score_breakdown.shadow_score),
+          cfarAgreement: Math.round(detection.score_breakdown.cfar_score),
+          fusedScore: Math.round(detection.score_breakdown.fused_score),
+        },
+        isCfarCandidateOnly: false,
+        status: detection.reviewed_status,
+        timestamp: detection.created_at,
+        locationName: file.name,
+        croppedPatchBg: 'from-slate-950 via-cyan-950 to-slate-900',
+      }));
+      const dataset: SurveyDataset = {
+        id: upload.id,
+        name: file.name,
+        fileType: file.name.split('.').pop()?.toUpperCase() || 'UNKNOWN',
+        fileSize: `${(file.size / (1024 * 1024)).toFixed(1)} MB`,
+        timestamp: new Date().toISOString(),
+        locationName: 'Uploaded survey',
+        pingCount: 0,
+        surveyLengthKm: 0,
+        auvTrack: [],
+        detections,
+      };
+      const uploadedDataset: SurveyDataset = {
+        ...dataset,
+        imageUrl: previewUrl,
+      };
+
+      localStorage.setItem('deepScanLatestDataset', JSON.stringify(uploadedDataset));
+      setLatestDataset(uploadedDataset);
+      setSelectedDataset(uploadedDataset);
       setPipelineProgress(100);
       setCurrentStageIdx(5);
-      setLogMessages((prev) => [...prev, `✓ Model inference complete. Found ${dataset.detections.length} detections.`]);
+      setLogMessages((prev) => [...prev, `✓ Full sonar pipeline complete. Found ${uploadedDataset.detections.length} detections.`]);
       confetti({ particleCount: 60, spread: 70, origin: { y: 0.6 } });
+      navigate('/results');
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unable to reach the inference service.';
       setApiError(message);

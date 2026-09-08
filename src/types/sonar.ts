@@ -49,6 +49,7 @@ export interface SurveyDataset {
   detections: SonarDetection[];
   rawNoiseTileUrl?: string;
   filteredTileUrl?: string;
+  imageUrl?: string;
 }
 
 export interface PipelineStage {

@@ -23,6 +23,8 @@ DeepScan AI is an enterprise-grade oceanographic intelligence platform that anal
 npm install
 ```
 
+Copy `.env.example` to `.env` before using Docker Compose.
+
 ### Development Server
 ```bash
 npm run dev
@@ -42,7 +44,7 @@ backend/models/wreck_specialist/best.pt
 backend/models/pipeline_real/best_fixed.pt
 ```
 
-The backend creates one independent inference agent per model. A multi-agent orchestrator runs all registered agents in parallel and merges their detections. Add future models to `AGENT_REGISTRY` in `backend/main.py`; each agent has its own name, display name, and model path. Override `WRECK_MODEL_PATH` and `PIPELINE_MODEL_PATH` if you use different locations.
+The backend currently runs the shipwreck inference agent only. Add future models to `AGENT_REGISTRY` in `backend/main.py`; each agent has its own name, display name, and model path. Override `WRECK_MODEL_PATH` if you use a different location.
 
 ```bash
 cd backend
@@ -52,7 +54,15 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 
-The frontend sends uploaded images to `http://localhost:8000/predict`. Set `VITE_API_URL` when the API runs elsewhere. `/health` reports whether the configured model file is available.
+In a second terminal, run the frontend from the repository root:
+
+```bash
+npm run dev
+```
+
+The upload page sends image files to `http://localhost:8000/predict`.
+
+The frontend sends uploaded images to `http://localhost:8000/predict`. Set `VITE_API_URL` when the API runs elsewhere. `/health` reports whether the shipwreck model file is available.
 
 Use `/agents` to inspect every configured model agent and its file status. Each prediction response also includes `agent_statuses`.
 
